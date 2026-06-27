@@ -15,9 +15,9 @@ using namespace geode::prelude;
 // ShadowManager calls updateValues() then visit() inside the render-texture pass.
 // ============================================================================
 class ShadowOverlay {
-    cocos2d::CCLabelBMFont* m_fps = nullptr;
-    cocos2d::CCLabelBMFont* m_cps = nullptr;
-    cocos2d::CCLabelBMFont* m_status = nullptr;
+    cocos2d::CCLabelBMFont* m_fpsLabel = nullptr;
+    cocos2d::CCLabelBMFont* m_cpsLabel = nullptr;
+    cocos2d::CCLabelBMFont* m_statusLabel = nullptr;
 
     int m_width = 1920;
     int m_height = 1080;
@@ -48,8 +48,8 @@ public:
     void updateValues(int progressPercent, bool spoutOpen, bool synced);
 
     void visit() {
-        if (m_fps) m_fps->visit();
-        if (m_cps) m_cps->visit();
-        if (m_status) m_status->visit();
+        if (m_fpsLabel) m_fpsLabel->visit();
+        if (m_cpsLabel) m_cpsLabel->visit();
+        if (m_statusLabel) m_statusLabel->visit();
     }
 };

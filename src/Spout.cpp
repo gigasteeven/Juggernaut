@@ -1,8 +1,11 @@
 #include "Spout.hpp"
+#include <Geode/Geode.hpp>
 
 #if LAYOUT_SHADOW_SPOUT
 
 #include <windows.h>
+
+using namespace geode::prelude;
 
 // ============================================================================
 // Spout2 C API (SpoutLibrary) binding.

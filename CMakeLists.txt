@@ -28,7 +28,8 @@ add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
 setup_geode_mod(${PROJECT_NAME})
 
-if (MSVC)
-    # layout_mode.cpp holds two giant ID tables; /bigobj keeps the TU compilable.
+# layout_mode.cpp holds two giant ID tables; /bigobj keeps the TU compilable.
+# CI uses clang-cl (MSVC ABI), so match on Windows rather than the MSVC generator.
+if (WIN32)
     target_compile_options(${PROJECT_NAME} PRIVATE /bigobj)
 endif()

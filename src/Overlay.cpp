@@ -4,32 +4,31 @@ void ShadowOverlay::setup(int width, int height) {
     m_width = width;
     m_height = height;
 
-    if (!m_fps) {
-        m_fps = cocos2d::CCLabelBMFont::create("", "bigFont.fnt");
-        m_fps->retain();
-        m_fps->setAnchorPoint({0.f, 1.f});
-        m_fps->setScale(1.1f);
-        m_fps->setColor({255, 255, 255});
+    if (!m_fpsLabel) {
+        m_fpsLabel = cocos2d::CCLabelBMFont::create("", "bigFont.fnt");
+        m_fpsLabel->retain();
+        m_fpsLabel->setAnchorPoint({0.f, 1.f});
+        m_fpsLabel->setScale(1.1f);
+        m_fpsLabel->setColor({255, 255, 255});
 
-        m_cps = cocos2d::CCLabelBMFont::create("", "bigFont.fnt");
-        m_cps->retain();
-        m_cps->setAnchorPoint({0.f, 1.f});
-        m_cps->setScale(1.1f);
-        m_cps->setColor({255, 255, 255});
+        m_cpsLabel = cocos2d::CCLabelBMFont::create("", "bigFont.fnt");
+        m_cpsLabel->retain();
+        m_cpsLabel->setAnchorPoint({0.f, 1.f});
+        m_cpsLabel->setScale(1.1f);
+        m_cpsLabel->setColor({255, 255, 255});
 
-        m_status = cocos2d::CCLabelBMFont::create("", "bigFont.fnt");
-        m_status->retain();
-        m_status->setAnchorPoint({0.f, 1.f});
-        m_status->setScale(0.8f);
-        m_status->setColor({180, 180, 180});
+        m_statusLabel = cocos2d::CCLabelBMFont::create("", "bigFont.fnt");
+        m_statusLabel->retain();
+        m_statusLabel->setAnchorPoint({0.f, 1.f});
+        m_statusLabel->setScale(0.8f);
+        m_statusLabel->setColor({180, 180, 180});
     }
 
-    // Top-left stack, origin = top-left in the render-texture's coordinate space.
-    // CCRenderTexture draws with (0,0) bottom-left; we place labels at top via y.
+    // Top-left stack. CCRenderTexture draws with (0,0) bottom-left.
     const float margin = 12.f;
-    m_fps->setPosition({margin, (float)m_height - margin});
-    m_cps->setPosition({margin, (float)m_height - margin - 32.f});
-    m_status->setPosition({margin, (float)m_height - margin - 64.f});
+    m_fpsLabel->setPosition({margin, (float)m_height - margin});
+    m_cpsLabel->setPosition({margin, (float)m_height - margin - 32.f});
+    m_statusLabel->setPosition({margin, (float)m_height - margin - 64.f});
 }
 
 void ShadowOverlay::sampleClicks(bool jumpHeld, float dt) {
@@ -53,15 +52,15 @@ void ShadowOverlay::sampleClicks(bool jumpHeld, float dt) {
 }
 
 void ShadowOverlay::updateValues(int progressPercent, bool spoutOpen, bool synced) {
-    if (m_fps)
-        m_fps->setString(fmt::format("FPS: {}", m_fps).c_str());
-    if (m_cps)
-        m_cps->setString(fmt::format("CPS: {}", m_cps).c_str());
-    if (m_status) {
+    if (m_fpsLabel)
+        m_fpsLabel->setString(fmt::format("FPS: {}", m_fps).c_str());
+    if (m_cpsLabel)
+        m_cpsLabel->setString(fmt::format("CPS: {}", m_cps).c_str());
+    if (m_statusLabel) {
         std::string s = fmt::format("Progress: {}%  |  Spout: {}  |  Sync: {}",
             progressPercent,
             spoutOpen ? "ON" : "OFF",
             synced ? "OK" : "DRIFT");
-        m_status->setString(s.c_str());
+        m_statusLabel->setString(s.c_str());
     }
 }

@@ -4,7 +4,19 @@
 #include <Geode/binding/PlayLayer.hpp>
 #include <Geode/binding/PlayerObject.hpp>
 #include <Geode/binding/GameObject.hpp>
-#include <Geode/cocos/CCGL.h>
+
+// GL readback for Spout. cocos2d-x declares these in its platform GL header, but
+// that path is not stable across Geode SDK layouts, so we declare the minimal
+// GL surface we use directly. OpenGL32 is provided by the OS on Windows and is
+// already linked by the GD process.
+#ifdef GEODE_IS_WINDOWS
+extern "C" {
+    __declspec(dllimport) void __stdcall glReadPixels(int x, int y, int width, int height,
+                                                      unsigned int format, unsigned int type, void* data);
+}
+#define GL_RGBA          0x1908
+#define GL_UNSIGNED_BYTE 0x1401
+#endif
 
 // ============================================================================
 // Creation / teardown
