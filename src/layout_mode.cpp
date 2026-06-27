@@ -5,7 +5,6 @@
 #include <Geode/modify/LevelTools.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/binding/GameObject.hpp>
-#include <Geode/binding/ZipUtils.hpp>
 #include <Geode/utils/string.hpp>
 
 using namespace geode::prelude;
