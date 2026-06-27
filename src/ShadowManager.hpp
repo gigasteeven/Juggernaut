@@ -3,26 +3,59 @@
 #include <Geode/Geode.hpp>
 #include <Geode/binding/PlayLayer.hpp>
 #include <Geode/binding/GJGameLevel.hpp>
+#include <Geode/binding/PlayerObject.hpp>
+#include <Geode/binding/GameObject.hpp>
+
+#include "Spout.hpp"
+#include "Overlay.hpp"
 
 using namespace geode::prelude;
 
-// Owns the SHADOW (second, offscreen, detached) PlayLayer of the current level.
+// ============================================================================
+// ShadowManager
+// ----------------------------------------------------------------------------
+// Owns the SHADOW PlayLayer: a second, detached instance of the current level
+// rendered with FULL decorations into an offscreen render texture, then pushed
+// to OBS via Spout2 (or shown as an on-screen preview when Spout is disabled).
 //
-// SHADOW is a full level (original, unmodified level string -> all decorations),
-// kept alive manually via retain()/release() because it is NOT added to any scene.
-// It is never the game singleton (GameManager::m_playLayer), which always points
-// at PRIMARY (the layer the player actually sees).
+// PRIMARY  = the PlayLayer the player sees (singleton GameManager::m_playLayer).
+// SHADOW   = our second PlayLayer. NEVER the singleton. Retained manually.
 //
-// Step 1 scope: just create + destroy it stably. No layout, no Spout, no input sync yet.
+// Sync model (see readme "СИНХРОНИЗАЦИЯ"):
+//   - Single source of time: every frame, PRIMARY's postUpdate hands the exact
+//     same dt to SHADOW and mirrors the current input state.
+//   - SHADOW has NO schedule/accumulator of its own.
+//   - Player physics depends only on solid/hazard (identical in both layers),
+//     so determinism holds and the per-frame position diff is exactly 0.
+// ============================================================================
 class ShadowManager {
     PlayLayer* m_shadow = nullptr;
     GJGameLevel* m_level = nullptr;
-
-    // Re-entrancy guard: true only while we are *inside* PlayLayer::create for the
-    // shadow, so our own PlayLayer hooks can tell this instance apart from PRIMARY.
     bool m_creatingShadow = false;
+    bool m_paused = false;
+
+    // Offscreen render target the shadow is drawn into.
+    cocos2d::CCRenderTexture* m_rt = nullptr;
+    int m_width = 1920;
+    int m_height = 1080;
+
+    // Persistent RGBA8 readback buffer (reused every frame -> no per-frame alloc).
+    std::vector<unsigned char> m_readback;
+
+    // Last input snapshot mirrored into the shadow (p1 + p2: jump/left/right).
+    bool m_mirrorHeld[6] = {false, false, false, false, false, false};
+
+    // Debug: per-frame position diff between PRIMARY p1 and SHADOW p1.
+    bool m_loggedDrift = false;
+
+    SpoutSender m_spout;
+    ShadowOverlay m_overlay;
 
     ShadowManager() = default;
+
+    void applyMirrorInput();
+    void renderShadowToTexture();
+    void checkSync();
 
 public:
     static ShadowManager& get() {
@@ -30,16 +63,26 @@ public:
         return instance;
     }
 
-    // True while the shadow is mid-construction. Checked from PlayLayer::init.
     bool isCreatingShadow() const { return m_creatingShadow; }
-
     PlayLayer* shadow() const { return m_shadow; }
     bool hasShadow() const { return m_shadow != nullptr; }
+    bool isPaused() const { return m_paused; }
 
-    // Builds the shadow for the given level. Safe to call repeatedly; destroys any
-    // previous shadow first. Restores the game singleton to PRIMARY afterwards.
+    void setPaused(bool paused) { m_paused = paused; }
+
+    // Build the shadow + render texture for `level`.
     void create(GJGameLevel* level);
 
-    // Releases the shadow and clears state. Safe to call when there is none.
+    // Release shadow + texture + spout.
     void destroy();
+
+    // Called from PRIMARY's postUpdate every frame with PRIMARY's dt.
+    // Steps the shadow in lockstep, mirrors input, renders to texture, pushes spout.
+    void onPrimaryPostUpdate(float dt);
+
+    // Called from PRIMARY's resetLevel (death/restart): reset shadow in lockstep.
+    void onPrimaryReset();
+
+    // Live reconfigure of output size (from settings menu).
+    void configureOutput(int width, int height);
 };

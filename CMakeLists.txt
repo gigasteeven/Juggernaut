@@ -12,6 +12,10 @@ string(JSON MOD_ID GET "${MOD_JSON}" id)
 add_library(${PROJECT_NAME} SHARED
     src/main.cpp
     src/ShadowManager.cpp
+    src/Spout.cpp
+    src/LayoutGate.cpp
+    src/layout_mode.cpp
+    src/Overlay.cpp
 )
 
 if (NOT DEFINED ENV{GEODE_SDK})
@@ -24,7 +28,12 @@ add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
 setup_geode_mod(${PROJECT_NAME})
 
+if (WIN32)
+    # Spout bridge uses D3D11/DXGI on Windows.
+    target_link_libraries(${PROJECT_NAME} PRIVATE d3d11 dxgi)
+endif()
+
 if (MSVC)
-    # Layout tables are huge translation units; help the compiler.
+    # layout_mode.cpp holds two giant ID tables; /bigobj keeps the TU compilable.
     target_compile_options(${PROJECT_NAME} PRIVATE /bigobj)
 endif()

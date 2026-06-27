@@ -12,11 +12,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Geode mod
+      - name: Build Geode mod (Windows only)
         uses: geode-sdk/build-geode-mod@main
         id: build
         with:
-          sdk: "5.7.1"   # fallback to 'latest' if the 5.7.1 tag is unavailable
+          sdk: "5.7.1"
+          combine: false
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
