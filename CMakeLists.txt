@@ -29,7 +29,11 @@ add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 setup_geode_mod(${PROJECT_NAME})
 
 # layout_mode.cpp holds two giant ID tables; /bigobj keeps the TU compilable.
-# CI uses clang-cl (MSVC ABI), so match on Windows rather than the MSVC generator.
-if (WIN32)
+# Only MSVC and clang-cl understand the /-flag form. Plain clang++ (GCC driver,
+# which some CI runners use to target Windows) would treat "/bigobj" as a file
+# path and fail with "no such file or directory". Gate accordingly: emit /bigobj
+# only for MSVC-compatible drivers. clang++ compiles these TUs fine at -O3
+# without it (sections get folded below the COFF 65k limit).
+if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /bigobj)
 endif()
