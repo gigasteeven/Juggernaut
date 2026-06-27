@@ -40,7 +40,7 @@ void ShadowManager::create(GJGameLevel* level) {
 
     log::info("[Shadow] created shadow PlayLayer {} for level '{}'",
               static_cast<void*>(shadow),
-              level->m_levelName.value_or(std::string("?")));
+              level->m_levelName.empty() ? std::string("?") : std::string(level->m_levelName));
 }
 
 void ShadowManager::destroy() {
