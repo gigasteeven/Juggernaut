@@ -5,6 +5,10 @@
 #include <Geode/binding/PlayerObject.hpp>
 #include <Geode/binding/GameObject.hpp>
 
+// Defined in LayoutGate.cpp — registers the shadow PlayLayer pointer so the
+// layout gate can tell PRIMARY from shadow by identity (no header cycle).
+extern "C" void LayoutGate_markShadow(PlayLayer* p);
+
 // GL readback for Spout. cocos2d-x declares these in its platform GL header, but
 // that path is not stable across Geode SDK layouts, so we declare the minimal
 // GL surface we use directly. OpenGL32 is provided by the OS on Windows and is
@@ -45,20 +49,22 @@ void ShadowManager::create(GJGameLevel* level) {
 
     shadow->retain(); // detached from scene: keep it alive
     m_shadow = shadow;
+    LayoutGate_markShadow(shadow); // so layout gate skips this layer by identity
 
-    // CRITICAL: cocos2d only starts a node's lifecycle once onEnter() has fired.
-    // Since the shadow is NOT in the scene graph, the engine never calls onEnter
-    // for it, so its gameplay update loop (which gates on the "running" state)
-    // would never engage -> the player would stand still on spawn (exactly the
-    // drift we saw: shadow=(0,105)). Simulate the enter transition manually so
-    // the layer believes it is live.
+    // Clean stepping model:
+    //   1) onEnter() sets m_bRunning=true so the layer's gameplay update loop
+    //      actually engages when we call it (otherwise the player stays frozen
+    //      on spawn — the first drift bug: shadow=(0,105)).
+    //   2) unscheduleUpdate() detaches the shadow from the GLOBAL CCScheduler,
+    //      so the engine does NOT auto-tick it every frame. Without this, the
+    //      scheduler AND our manual update() both step it -> x2 speed, and the
+    //      shadow steals input/camera from PRIMARY (icon disappears).
     //
-    // We deliberately do NOT call scheduleUpdate(): CCScheduler is global, so it
-    // would auto-tick the shadow on top of our manual step in postUpdate, causing
-    // a double-step and breaking the lockstep. We drive the shadow manually with
-    // PRIMARY's exact dt.
+    // Net effect: the shadow is "alive" (update works) but is driven ONLY by us,
+    // once per frame, with PRIMARY's exact dt -> single-step, in lockstep.
     shadow->onEnter();
     shadow->onEnterTransitionDidFinish();
+    shadow->unscheduleUpdate();
 
     configureOutput(
         Mod::get()->getSettingValue<int>("shadow_width"),
@@ -72,6 +78,7 @@ void ShadowManager::create(GJGameLevel* level) {
 void ShadowManager::destroy() {
     if (m_shadow) {
         log::info("[Shadow] destroying shadow PlayLayer {}", static_cast<void*>(m_shadow));
+        LayoutGate_markShadow(nullptr); // unmark BEFORE release so gate is clean
         m_shadow->release();
         m_shadow = nullptr;
     }
@@ -151,12 +158,12 @@ void ShadowManager::onPrimaryPostUpdate(float dt) {
 
     applyMirrorInput();
 
-    // SIMPLE MODEL: the shadow is stepped by the engine's scheduler naturally
-    // (it got onEnter during create(), so it is "running" like PRIMARY). We do
-    // NOT call update() manually here — that caused a double-step (x2 speed).
-    // Both layers share the same global CCScheduler, so both get the same dt
-    // every frame -> they stay locked automatically. We only mirror input and
-    // render here.
+    // Shadow stepping: it was unscheduleUpdate()'d during create(), so the
+    // global scheduler does NOT tick it. We are the ONLY driver. Feed PRIMARY's
+    // exact dt -> single-step, in lockstep with PRIMARY (drift was ~0.7 with
+    // this model, which is the floating sub-frame rounding GD has by design).
+    m_shadow->update(dt);
+
     checkSync();
     renderShadowToTexture();
 

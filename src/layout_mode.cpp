@@ -48,7 +48,9 @@ class $modify(LevelTools) {
 
 class $modify(PlayLayer) {
     void addObject(GameObject* obj) {
-        if (!LayoutGate::shouldApply()) return PlayLayer::addObject(obj);
+        // Per-layer gate: layout applies to PRIMARY (this != shadow), never shadow.
+        // Checked every addObject call, so it stays correct after reset/restart.
+        if (!LayoutGate::shouldApply(this)) return PlayLayer::addObject(obj);
 
         if (excludedTriggerIDs.contains(obj->m_objectID)) return;
 
