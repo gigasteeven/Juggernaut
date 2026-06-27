@@ -33,6 +33,7 @@ class ShadowManager {
     GJGameLevel* m_level = nullptr;
     bool m_creatingShadow = false;
     bool m_paused = false;
+    bool m_steppingShadow = false;
 
     // Offscreen render target the shadow is drawn into.
     cocos2d::CCRenderTexture* m_rt = nullptr;
@@ -67,6 +68,13 @@ public:
     PlayLayer* shadow() const { return m_shadow; }
     bool hasShadow() const { return m_shadow != nullptr; }
     bool isPaused() const { return m_paused; }
+
+    // True ONLY during the shadow's own update() step. Used by the FMOD hook to
+    // suppress audio calls coming from the shadow's gameplay loop (so the shadow
+    // never starts/restarts/seeks the music channel that PRIMARY owns). Music is
+    // a global singleton in GD -> the shadow would otherwise fight PRIMARY for it
+    // (wrong music offset on startpos, crash on startpos switch).
+    bool isSteppingShadow() const { return m_steppingShadow; }
 
     void setPaused(bool paused) { m_paused = paused; }
 

@@ -162,7 +162,15 @@ void ShadowManager::onPrimaryPostUpdate(float dt) {
     // global scheduler does NOT tick it. We are the ONLY driver. Feed PRIMARY's
     // exact dt -> single-step, in lockstep with PRIMARY (drift was ~0.7 with
     // this model, which is the floating sub-frame rounding GD has by design).
+    //
+    // m_steppingShadow gates the FMOD hook: any audio call made while the shadow
+    // is mid-update is coming FROM the shadow's gameplay loop and must be
+    // dropped (PRIMARY owns the music channel; the shadow must never start /
+    // seek / restart it -> fixes wrong music offset on startpos + crash on
+    // startpos switch).
+    m_steppingShadow = true;
     m_shadow->update(dt);
+    m_steppingShadow = false;
 
     checkSync();
     renderShadowToTexture();
@@ -174,7 +182,11 @@ void ShadowManager::onPrimaryPostUpdate(float dt) {
 
 void ShadowManager::onPrimaryReset() {
     if (!m_shadow) return;
+    // Gate audio: resetLevel inside the shadow would seek/restart the music
+    // channel that PRIMARY owns -> wrong offset / crash. Suppress.
+    m_steppingShadow = true;
     m_shadow->resetLevel();
+    m_steppingShadow = false;
     m_loggedDrift = false;
     for (int i = 0; i < 6; i++) m_mirrorHeld[i] = false;
 }

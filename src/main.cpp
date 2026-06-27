@@ -1,6 +1,7 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/PauseLayer.hpp>
+#include <Geode/modify/FMODAudioEngine.hpp>
 #include <Geode/binding/GameManager.hpp>
 #include <Geode/binding/GJGameLevel.hpp>
 #include <Geode/binding/PlayerObject.hpp>
@@ -88,22 +89,41 @@ class $modify(PlayLayer) {
 
 // ============================================================================
 // Pause: when the player resumes from the pause menu, unfreeze the shadow.
-// onResume is the GD method called when the user hits "Resume" in PauseLayer
-// (used the same way by XDBot: src/hacks/frame_stepper.cpp).
-//
-// We do NOT set paused=true on menu open: onPrimaryPostUpdate keeps running as
-// long as PRIMARY's postUpdate fires, and PRIMARY's m_isPaused gates the shadow
-// stepping inside ShadowManager. This resume hook just clears the flag early so
-// there is no one-frame delay after unpausing.
-//
-// Audio note: the shadow is detached from the scene and never the active
-// singleton, so GD does not drive its object SFX. Global music is scene-shared
-// -> only PRIMARY is audible. No FMOD gate needed.
 // ============================================================================
 class $modify(PauseLayer) {
     void onResume(CCObject* sender) {
         PauseLayer::onResume(sender);
         if (ShadowManager::get().hasShadow())
             ShadowManager::get().setPaused(false);
+    }
+};
+
+// ============================================================================
+// Audio gate: GD's music channel is a GLOBAL singleton in FMODAudioEngine.
+// The shadow's gameplay loop (ticked by our manual update/resetLevel) also
+// drives audio — startMusic / setMusicTimeMS / playEffect etc. If left
+// unguarded, the shadow fights PRIMARY for the one music channel:
+//   - wrong music offset when using a startpos (shadow re-seeks it)
+//   - crash on rapid startpos switch (two layers racing the channel)
+//
+// Fix: drop EVERY audio call made while ShadowManager.isSteppingShadow() is
+// true. Those calls originate ONLY from the shadow's update/reset, never from
+// PRIMARY (PRIMARY's audio is driven by the engine scheduler, outside our
+// stepping window). Net effect: only PRIMARY is audible.
+// ============================================================================
+class $modify(FMODAudioEngine) {
+    void playEffect(gd::string path, float speed, float p2, float volume) {
+        if (ShadowManager::get().isSteppingShadow()) return;
+        FMODAudioEngine::playEffect(path, speed, p2, volume);
+    }
+
+    // Music seeking: the shadow's resetLevel (on death/restart/startpos switch)
+    // calls setMusicTimeMS to re-seek the GLOBAL music channel to the startpos
+    // offset. That overwrites the position PRIMARY set -> wrong music offset, and
+    // when two layers race the channel on a rapid startpos switch -> crash.
+    // Drop music control while the shadow is stepping.
+    void setMusicTimeMS(int ms, bool p1, int channel) {
+        if (ShadowManager::get().isSteppingShadow()) return;
+        FMODAudioEngine::setMusicTimeMS(ms, p1, channel);
     }
 };
