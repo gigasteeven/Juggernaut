@@ -136,7 +136,16 @@ void ShadowManager::onPrimaryPostUpdate(float dt) {
     if (m_paused) return; // frozen while pause menu is up
 
     applyMirrorInput();
-    m_shadow->update(dt); // single source of time: PRIMARY's exact dt
+
+    // Stepping the shadow. GD's gameplay physics lives in
+    // GJBaseGameLayer::update(float) as a fixed-step loop driven by dt. Because
+    // it's virtual, calling update() on a PlayLayer* resolves to the gameplay
+    // update, not the bare CCNode one. The shadow is NOT in the scene graph so
+    // the engine's scheduler never ticks it -> we tick it here with PRIMARY's
+    // exact dt (single source of time) so it runs the same N fixed steps as
+    // PRIMARY and stays frame-locked.
+    m_shadow->update(dt);
+
     checkSync();
     renderShadowToTexture();
 
