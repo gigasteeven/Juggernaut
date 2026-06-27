@@ -46,6 +46,20 @@ void ShadowManager::create(GJGameLevel* level) {
     shadow->retain(); // detached from scene: keep it alive
     m_shadow = shadow;
 
+    // CRITICAL: cocos2d only starts a node's lifecycle once onEnter() has fired.
+    // Since the shadow is NOT in the scene graph, the engine never calls onEnter
+    // for it, so its gameplay update loop (which gates on the "running" state)
+    // would never engage -> the player would stand still on spawn (exactly the
+    // drift we saw: shadow=(0,105)). Simulate the enter transition manually so
+    // the layer believes it is live.
+    //
+    // We deliberately do NOT call scheduleUpdate(): CCScheduler is global, so it
+    // would auto-tick the shadow on top of our manual step in postUpdate, causing
+    // a double-step and breaking the lockstep. We drive the shadow manually with
+    // PRIMARY's exact dt.
+    shadow->onEnter();
+    shadow->onEnterTransitionDidFinish();
+
     configureOutput(
         Mod::get()->getSettingValue<int>("shadow_width"),
         Mod::get()->getSettingValue<int>("shadow_height"));
