@@ -5,9 +5,25 @@
 #include <Geode/modify/LevelTools.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/binding/GameObject.hpp>
-#include <Geode/utils/string.hpp>
 
 using namespace geode::prelude;
+
+// XDBot's own splitter (src/utils/utils.cpp) — splits a string by a single char.
+// We vendor it verbatim because Geode's utils::string::split takes a string_view
+// delimiter, while layout parsing needs a single-char split.
+static std::vector<std::string> splitByChar(std::string str, char splitChar) {
+    std::vector<std::string> strs;
+    strs.reserve(std::count(str.begin(), str.end(), splitChar) + 1);
+    size_t start = 0;
+    size_t end = str.find(splitChar);
+    while (end != std::string::npos) {
+        strs.emplace_back(str.substr(start, end - start));
+        start = end + 1;
+        end = str.find(splitChar, start);
+    }
+    strs.emplace_back(str.substr(start));
+    return strs;
+}
 
 // ============================================================================
 // Vendored from XDBot src/hacks/layout_mode.cpp
@@ -55,11 +71,11 @@ std::string LayoutMode::getModifiedString(std::string levelString) {
 
     std::string decompString = ZipUtils::decompressString(levelString.c_str(), true, 0);
 
-    std::vector<std::string> objectStrings = utils::string::split(decompString, ';');
+    std::vector<std::string> objectStrings = splitByChar(decompString, ';');
     std::string firstPart = objectStrings[0];
 
-    std::vector<std::string> levelSettings = utils::string::split(firstPart, ',');
-    std::vector<std::string> levelColors = utils::string::split(levelSettings[1], '|');
+    std::vector<std::string> levelSettings = splitByChar(firstPart, ',');
+    std::vector<std::string> levelColors = splitByChar(levelSettings[1], '|');
 
     if (levelColors.size() >= 6)
         levelColors.erase(levelColors.begin(), levelColors.begin() + 6);
@@ -81,7 +97,7 @@ std::string LayoutMode::getModifiedString(std::string levelString) {
     std::vector<LevelObject> objects;
 
     for (size_t i = 1; i < objectStrings.size(); i++) {
-        std::vector<std::string> result = utils::string::split(objectStrings[i], ',');
+        std::vector<std::string> result = splitByChar(objectStrings[i], ',');
         std::map<int, std::string> props;
         size_t hidden = 0;
 
@@ -129,7 +145,7 @@ std::string LayoutMode::getModifiedString(std::string levelString) {
         if (decoObjectIDs.contains(id) || props.contains(121)) {
             if (!props.contains(57)) continue;
 
-            for (const auto& el : utils::string::split(props.at(57), '.')) {
+            for (const auto& el : splitByChar(props.at(57), '.')) {
                 if (el.empty()) continue;
                 int g;
                 try { g = std::stoi(el); } catch (...) { continue; }
