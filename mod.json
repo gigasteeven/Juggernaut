@@ -1,0 +1,19 @@
+{
+    "geode": "5.7.1",
+    "gd": {
+        "win": "2.2081"
+    },
+    "version": "v0.1.0",
+    "id": "laymod.shadow",
+    "name": "Layout Shadow",
+    "developer": "LayoutShadow",
+    "description": "Layout XDBot on screen (PRIMARY), full level to OBS via a shadow PlayLayer (SHADOW).",
+    "settings": {
+        "enabled": {
+            "name": "Enable Shadow PlayLayer",
+            "description": "Create a second offscreen PlayLayer (full level) when entering a level. Disable to play normally.",
+            "type": "bool",
+            "default": true
+        }
+    }
+}
