@@ -28,11 +28,6 @@ add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
 setup_geode_mod(${PROJECT_NAME})
 
-if (WIN32)
-    # Spout bridge uses D3D11/DXGI on Windows.
-    target_link_libraries(${PROJECT_NAME} PRIVATE d3d11 dxgi)
-endif()
-
 if (MSVC)
     # layout_mode.cpp holds two giant ID tables; /bigobj keeps the TU compilable.
     target_compile_options(${PROJECT_NAME} PRIVATE /bigobj)
