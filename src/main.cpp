@@ -7,6 +7,7 @@
 
 #include "ShadowManager.hpp"
 #include "LayoutGate.hpp"
+#include "layout_mode.hpp"
 
 using namespace geode::prelude;
 
@@ -37,8 +38,23 @@ class $modify(PlayLayer) {
         }
         // Layout gate: the vendored XDBot layout hooks read this thread-local.
         // Active only for PRIMARY when the setting is on; never for SHADOW.
-        LayoutGate::scope gate(!m_fields->isShadow &&
-                               Mod::get()->getSettingValue<bool>("layout_on_primary"));
+        bool applyLayout = !m_fields->isShadow &&
+                           Mod::get()->getSettingValue<bool>("layout_on_primary");
+        LayoutGate::scope gate(applyLayout);
+
+        // CORE: apply layout to PRIMARY by transforming the level string.
+        // We swap level->m_levelString to the layout version for the duration
+        // of init (object parsing happens inside init), then restore the
+        // original so the GJGameLevel object is never mutated persistently.
+        // This mirrors XDBot's PlayLayer::init hook exactly.
+        if (applyLayout) {
+            gd::string original = level->m_levelString;
+            std::string modified = LayoutMode::getModifiedString(original);
+            level->m_levelString = modified;
+            bool ok = PlayLayer::init(level, useReplay, dontCreateObjects);
+            level->m_levelString = original; // always restore, even on failure
+            return ok;
+        }
         return PlayLayer::init(level, useReplay, dontCreateObjects);
     }
 
