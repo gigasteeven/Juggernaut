@@ -49,7 +49,7 @@ class ShadowManager {
     // Debug: per-frame position diff between PRIMARY p1 and SHADOW p1.
     bool m_loggedDrift = false;
 
-    SpoutSender m_spout;
+    SpoutOutput m_spout;
     ShadowOverlay m_overlay;
 
     ShadowManager() = default;

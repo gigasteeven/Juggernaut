@@ -1,13 +1,12 @@
 #pragma once
 
 // ============================================================================
-// Spout2 sender wrapper (Windows-only, runtime-loaded via LoadLibrary).
+// Spout2 sender wrapper.
 // ----------------------------------------------------------------------------
-// Uses the official Spout2 C API (SpoutLibrary): getSpoutLibrary() returns a
-// pointer to a "SPOUTLIBRARY" object exposing CreateSender / SendImage /
-// ReleaseSender. Spout.dll ships with OBS / the Spout installer and is NOT
-// bundled here. We dlopen it at runtime so the mod loads even when Spout is
-// absent (CI, dev machines): it then degrades to "no output, texture preview".
+// On Windows we link Spout2 STATICALLY from vendored sources (Spout2/). There
+// is no runtime DLL to install — the sender is built into the mod .geode. On
+// non-Windows builds this is a no-op stub (CI compiles but there is no OBS
+// target there anyway).
 // ============================================================================
 
 #include <Geode/Geode.hpp>
@@ -19,23 +18,22 @@
 #define LAYOUT_SHADOW_SPOUT 0
 #endif
 
-// Minimal subset of the SpoutLibrary C interface we bind to at runtime.
-// Mirrors Spout2 SpoutLibrary.h "SPOUTLIBRARY".
-struct SpoutLibrary;
-typedef SpoutLibrary* (__cdecl* PFN_getSpoutLibrary)();
+#if LAYOUT_SHADOW_SPOUT
+// Pull in the vendored SpoutGL sender so we can hold one by value. The header
+// pulls Windows GL headers; it is only included on Windows where that is fine.
+#include "SpoutSender.h"
+#endif
 
-class SpoutSender {
+class SpoutOutput {
 public:
-    SpoutSender() = default;
-    ~SpoutSender();
+    SpoutOutput() = default;
+    ~SpoutOutput();
 
-    // Open a sender with `name` at `width`x`height`. No-op if Spout unavailable.
-    // Returns true if actually sending.
+    // Create a named sender at `width`x`height`. Returns true on success.
     bool open(const std::string& name, int width, int height);
 
-    // Push an RGBA8 frame. `data` must be width*height*4 bytes. The Spout C API
-    // SendImage expects bInvert=1 for bottom-up OpenGL data (which is what we
-    // get from glReadPixels of an FBO), so we pass that.
+    // Push an RGBA8 frame (width*height*4 bytes). glReadPixels of an FBO yields
+    // bottom-up data; Spout's SendImage with bInvert=true flips it for OBS.
     void sendFrame(const unsigned char* data, int width, int height);
 
     void close();
@@ -44,10 +42,9 @@ public:
 private:
 #if LAYOUT_SHADOW_SPOUT
     bool m_open = false;
-    void* m_lib = nullptr;          // HMODULE
-    SpoutLibrary* m_s = nullptr;    // SPOUTLIBRARY*
     int m_width = 0;
     int m_height = 0;
+    ::SpoutSender m_sender;
 #else
     bool m_open = false;
 #endif
