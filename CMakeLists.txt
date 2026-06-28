@@ -52,6 +52,10 @@ if (WIN32)
     )
     # No SPOUT_BUILD_DLL define -> SPOUT_DLLEXP expands to nothing (static build).
     target_include_directories(Spout_static PUBLIC ${SPOUT_DIR})
+    # Spout's SpoutCopy.cpp uses SSSE3/SSE4 intrinsics (_mm_shuffle_epi8 etc.).
+    # The official Spout2 CMake adds -msse4 for MinGW; clang (CI's compiler)
+    # also needs the target feature enabled or the intrinsics are rejected.
+    target_compile_options(Spout_static PRIVATE -mssse3 -msse4.1)
     # Spout needs the Windows system libs it lists in its own CMake.
     target_link_libraries(Spout_static PUBLIC
         opengl32 kernel32 user32 gdi32 winspool comdlg32 comctl32 advapi32
