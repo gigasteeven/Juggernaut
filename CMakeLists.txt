@@ -12,7 +12,6 @@ string(JSON MOD_ID GET "${MOD_JSON}" id)
 add_library(${PROJECT_NAME} SHARED
     src/main.cpp
     src/ShadowManager.cpp
-    src/Spout.cpp
     src/LayoutGate.cpp
     src/layout_mode.cpp
     src/Overlay.cpp
@@ -70,7 +69,21 @@ if (WIN32)
     )
 
     target_link_libraries(${PROJECT_NAME} Spout_static)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE LAYOUT_SHADOW_SPOUT=1)
+
+    # ============================================================================
+    # Spout_glue — our thin wrapper (Spout.cpp) compiled WITHOUT Geode's
+    # precompiled header. The layoutshadow target force-includes Geode's PCH
+    # (which pulls glew.h), and SpoutSender.h redeclares GL extension pointers
+    # with conflicting typedefs -> "__glewShaderSource redeclaration" error.
+    # Building Spout.cpp in its own static lib (no PCH, no Geode includes)
+    # isolates the clash to here.
+    # ============================================================================
+    add_library(Spout_glue STATIC src/Spout.cpp)
+    target_include_directories(Spout_glue PRIVATE ${SPOUT_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_compile_definitions(Spout_glue PRIVATE LAYOUT_SHADOW_SPOUT=1 GL_GLEXT_LEGACY)
+    target_link_libraries(Spout_glue PRIVATE Spout_static)
+
+    target_link_libraries(${PROJECT_NAME} Spout_glue)
 endif()
 
 # layout_mode.cpp holds two giant ID tables; /bigobj keeps the TU compilable.

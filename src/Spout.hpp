@@ -6,21 +6,25 @@
 // On Windows we link Spout2 STATICALLY from vendored sources (Spout2/). There
 // is no runtime DLL to install — the sender is built into the mod .geode.
 //
-// IMPORTANT: this header deliberately does NOT include <Geode/Geode.hpp>. The
-// vendored SpoutGL headers (SpoutSender.h -> SpoutGLextensions.h) redeclare GL
-// extension function pointers with their own typedefs, which clash with the ones
-// Geode's cocos2d GL headers define. Keeping Geode out of this header means TUs
-// that include both this wrapper and Geode (ShadowManager.cpp, main.cpp) never
-// pull SpoutSender.h transitively -> no clash. Spout.cpp is the ONLY place that
-// includes SpoutSender.h, and it does not include Geode.
+// IMPORTANT: this header deliberately does NOT include <Geode/Geode.hpp> and
+// does NOT include SpoutSender.h. The vendored SpoutGL headers redeclare GL
+// extension function pointers with their own typedefs, which clash with Geode's
+// cocos2d GL headers (and Geode's force-included precompiled header). The real
+// ::SpoutSender is therefore held behind an opaque forward-declared Impl and
+// lives only in Spout.cpp, which is compiled as part of a SEPARATE static
+// library that does not use Geode's PCH.
 // ============================================================================
 
 #include <string>
 
-#ifdef GEODE_IS_WINDOWS
+// LAYOUT_SHADOW_SPOUT is also injected by CMake for the Spout build targets,
+// but define it here as a fallback so the public header is self-contained.
+#ifndef LAYOUT_SHADOW_SPOUT
+#ifdef _WIN32
 #define LAYOUT_SHADOW_SPOUT 1
 #else
 #define LAYOUT_SHADOW_SPOUT 0
+#endif
 #endif
 
 class SpoutOutput {
@@ -42,6 +46,6 @@ public:
     bool isOpen() const;
 
 private:
-    // Opaque handle to the vendored ::SpoutSender (defined in Spout.cpp).
-    void* m_impl = nullptr;
+    struct Impl;                 // defined in Spout.cpp
+    Impl* m_impl = nullptr;      // not used on non-Windows
 };

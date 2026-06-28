@@ -41,14 +41,19 @@ struct SpoutOutput::Impl {
     int height = 0;
 };
 
-SpoutOutput::SpoutOutput() {
-    m_impl = new Impl();
+SpoutOutput::SpoutOutput()
+#if LAYOUT_SHADOW_SPOUT
+    : m_impl(new Impl())
+#endif
+{
 }
 
 SpoutOutput::~SpoutOutput() {
     close();
-    delete static_cast<Impl*>(m_impl);
+#if LAYOUT_SHADOW_SPOUT
+    delete m_impl;
     m_impl = nullptr;
+#endif
 }
 
 bool SpoutOutput::open(const std::string& name, int width, int height) {
