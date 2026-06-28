@@ -9,7 +9,14 @@
 // and does NOT include <Geode/Geode.hpp> at all (log goes via stderr) so the
 // clash never happens anywhere. The clash is fully contained to the vendored
 // SpoutGL sources, which only include their own GL headers.
+//
+// GL_GLEXT_LEGACY MUST be defined before <GL/gl.h> is ever pulled in (SpoutSender
+// -> SpoutGLextensions -> gl.h) so gl.h does not declare the GL extension
+// prototypes that SpoutGLextensions then redefines with different typedefs
+// (the "__glewShaderSource redeclaration with a different type" error).
 // ============================================================================
+#define GL_GLEXT_LEGACY 1
+#define NOGDI 1
 #include "SpoutSender.h"
 
 #include "Spout.hpp"
