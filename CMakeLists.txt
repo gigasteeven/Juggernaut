@@ -58,7 +58,7 @@ if (WIN32)
         shell32 ole32 oleaut32 uuid odbc32 odbccp32 d3d9 d3d11 dxgi version winmm
     )
 
-    target_link_libraries(${PROJECT_NAME} PRIVATE Spout_static)
+    target_link_libraries(${PROJECT_NAME} Spout_static)
     target_compile_definitions(${PROJECT_NAME} PRIVATE LAYOUT_SHADOW_SPOUT=1)
 endif()
 
