@@ -16,7 +16,6 @@
 // (the "__glewShaderSource redeclaration with a different type" error).
 // ============================================================================
 #define GL_GLEXT_LEGACY 1
-#define NOGDI 1
 #include "SpoutSender.h"
 
 #include "Spout.hpp"
