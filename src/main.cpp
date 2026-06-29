@@ -2,6 +2,8 @@
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/CCScheduler.hpp>
 #include <Geode/modify/CCDirector.hpp>
+#include <Geode/modify/GameStatsManager.hpp>
+#include <Geode/modify/CCDirector.hpp>
 #include <Geode/modify/FMODAudioEngine.hpp>
 #include "layout_mode.hpp"
 
@@ -21,6 +23,7 @@ struct DualLayerState {
     bool shadowStepping = false;
     SpoutSender* spoutSender = nullptr;
     cocos2d::CCRenderTexture* renderTexture = nullptr;
+    unsigned int currentSeed = 0;
     
     static DualLayerState& get() {
         static DualLayerState instance;
@@ -41,6 +44,10 @@ class $modify(MyCCDirector, CCDirector) {
             state.renderTexture->beginWithClear(0, 0, 0, 1);
             CCDirector::drawScene(); // Draw the actual scene
             state.renderTexture->end();
+            
+            // Add indicators for non-PlayLayer scenes if needed, or just send the scene as is
+            // For now, just send the scene as is
+
 
             auto texture = state.renderTexture->getSprite()->getTexture();
             if (texture) {
@@ -109,8 +116,18 @@ class $modify(MyPlayLayer, PlayLayer) {
         // We temporarily set m_playLayer to nullptr so shadow init doesn't think it's primary
         GameManager::get()->m_playLayer = nullptr;
         
-        // Seed synchronization happens implicitly because they are created back-to-back
-        // but we should ensure they start at the same state
+        // Seed synchronization
+        // Capture the seed from the primary layer after its init
+        #ifdef GEODE_IS_WINDOWS
+        state.currentSeed = *(unsigned int*)((char*)geode::base::get() + 0x7173B0); // seedAddr from XDBot
+        #else
+        // For non-Windows, we might need to hook fast_srand or find another way to get the seed
+        // For now, we'll assume it's implicitly synchronized or will be handled by resetLevel
+        state.currentSeed = 0; // Placeholder
+        #endif
+
+        // Temporarily set m_playLayer to nullptr so shadow init doesn't think it's primary
+        GameManager::get()->m_playLayer = nullptr;
         auto shadow = PlayLayer::create(level, useReplay, dontCreateObjects);
         
         // Ensure m_playLayer is primary
@@ -215,8 +232,33 @@ class $modify(MyPlayLayer, PlayLayer) {
         state.shadowStepping = false;
         
         // Drift debug check
+        // Drift debug check
         if (std::abs(m_player1->getPositionX() - state.shadow->m_player1->getPositionX()) > 1.0f) {
             log::warn("Desync detected! Primary X: {}, Shadow X: {}", m_player1->getPositionX(), state.shadow->m_player1->getPositionX());
+        }
+
+        // Render indicators on top of the shadow render texture
+        if (state.renderTexture) {
+            state.renderTexture->begin();
+            // Draw FPS
+            auto fpsLabel = CCLabelBMFont::create(fmt::format("FPS: {:.1f}", CCDirector::get()->getFPS()).c_str(), "goldFont.fnt");
+            fpsLabel->setAnchorPoint({0, 1});
+            fpsLabel->setPosition({5, CCDirector::get()->getWinSize().height - 5});
+            fpsLabel->visit();
+
+            // Draw CPS (placeholder, actual CPS logic is complex)
+            auto cpsLabel = CCLabelBMFont::create("CPS: 0", "goldFont.fnt");
+            cpsLabel->setAnchorPoint({0, 1});
+            cpsLabel->setPosition({5, CCDirector::get()->getWinSize().height - 25});
+            cpsLabel->visit();
+
+            // Draw Progress
+            auto progressLabel = CCLabelBMFont::create(fmt::format("Progress: {}%", static_cast<int>(m_player1->getPositionX() / m_levelLength * 100)).c_str(), "goldFont.fnt");
+            progressLabel->setAnchorPoint({0, 1});
+            progressLabel->setPosition({5, CCDirector::get()->getWinSize().height - 45});
+            progressLabel->visit();
+
+            state.renderTexture->end();
         }
         
         // Render shadow to texture and send via Spout
@@ -248,6 +290,14 @@ class $modify(MyPlayLayer, PlayLayer) {
             state.shadowStepping = true;
             state.shadow->resetLevel();
             state.shadowStepping = false;
+
+            // Re-apply random seed after reset
+            #ifdef GEODE_IS_WINDOWS
+            *(unsigned int*)((char*)geode::base::get() + 0x7173B0) = state.currentSeed;
+            #else
+            // GameToolbox::fast_srand(state.currentSeed); // Need to find a way to set seed for shadow
+            #endif
+        }
         }
     }
 };
