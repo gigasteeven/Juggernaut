@@ -1,0 +1,36 @@
+name: Build Spout Shadow
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive  # Скачивает Spout2, если он сабмодуль
+
+    - name: Setup Geode SDK
+      uses: geode-sdk/actions/setup-geode@v1
+      with:
+        version: v5.7.1  # Указываем нужную версию Geode
+
+    - name: Configure CMake
+      run: cmake -B build -S . -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+    - name: Build Mod
+      run: cmake --build build --config RelWithDebInfo --parallel 4
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: SpoutShadow.geode
+        path: build/*.geode
+        if-no-files-found: error
