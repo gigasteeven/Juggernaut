@@ -12,11 +12,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Initialize and Update Submodules
-        run: git submodule update --init --recursive
 
       - name: Setup Geode CLI
         uses: geode-sdk/action@main

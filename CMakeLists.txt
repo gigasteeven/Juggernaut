@@ -12,9 +12,7 @@ string(JSON MOD_ID GET "${MOD_JSON}" id)
 # --- Spout2 Static Library ---
 # Compiled WITHOUT Geode PCH to avoid glew.h redeclaration conflicts.
 # GL_GLEXT_LEGACY must be the first define, before any GL headers.
-if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vendor/Spout2/SPOUTSDK/SpoutGL/SpoutSender.cpp")
-    message(FATAL_ERROR "Spout2 submodule not found! Please run 'git submodule update --init --recursive'")
-endif()
+
 
 add_library(Spout2 STATIC
     vendor/Spout2/SPOUTSDK/SpoutGL/SpoutSender.cpp
