@@ -34,7 +34,11 @@ target_compile_definitions(spout2_static PRIVATE
     GL_GLEXT_LEGACY        # ПЕРВЫМ — глушит redeclaration Glew vs Spout
     SPOUT_STATIC_DEFINE    # статическая линковка, никакой runtime DLL
 )
-# Geode PCH НЕ подключаем — именно тут лежит конфликт glew.h vs Spout.
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(spout2_static PRIVATE -mssse3)
+endif()
+
 if(MSVC)
     target_compile_options(spout2_static PRIVATE /bigobj)
 endif()
