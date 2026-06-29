@@ -1,97 +1,62 @@
 cmake_minimum_required(VERSION 3.21)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
-set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-
-project(layoutshadow VERSION 0.1.0)
+project(spoutshadow VERSION 0.1.0)
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/mod.json" MOD_JSON)
 string(JSON MOD_ID GET "${MOD_JSON}" id)
 
+if(NOT DEFINED ENV{GEODE_SDK})
+    message(FATAL_ERROR "GEODE_SDK env var not set")
+endif()
+add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
+
+# === Spout2 как изолированная статическая библиотека ===
+# Без Geode PCH, GL_GLEXT_LEGACY первым — глушит redeclaration Glew vs Spout.
+# БЕЗ NOGDI — Spout2 нуждается в wingdi.h типах.
+set(SPOUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/Spout2/SPOUTSDK/SpoutGL")
+set(SPOUT_SOURCES
+    ${SPOUT_DIR}/Spout.cpp
+    ${SPOUT_DIR}/SpoutGL.cpp
+    ${SPOUT_DIR}/SpoutCopy.cpp
+    ${SPOUT_DIR}/SpoutDirectX.cpp
+    ${SPOUT_DIR}/SpoutFrameCount.cpp
+    ${SPOUT_DIR}/SpoutGLextensions.cpp
+    ${SPOUT_DIR}/SpoutSenderNames.cpp
+)
+add_library(spout2_static STATIC ${SPOUT_SOURCES})
+target_include_directories(spout2_static PUBLIC ${SPOUT_DIR})
+target_compile_definitions(spout2_static PRIVATE
+    GL_GLEXT_LEGACY        # ПЕРВЫМ — критичный нюанс №1
+    SPOUT_STATIC_DEFINE    # статическая линковка, никакой runtime DLL
+)
+# Geode PCH НЕ подключаем — именно тут лежит конфликт glew.h vs Spout.
+if(MSVC)
+    target_compile_options(spout2_static PRIVATE /bigobj)
+endif()
+
+# === Главный таргет мода ===
 add_library(${PROJECT_NAME} SHARED
     src/main.cpp
     src/ShadowManager.cpp
-    src/LayoutGate.cpp
-    src/layout_mode.cpp
-    src/Overlay.cpp
+    src/SpoutManager.cpp
+    vendor/solid_ids.cpp
+    vendor/layout_mode.cpp
+    src/hooks/PlayLayerHooks.cpp
+    src/hooks/FMODHooks.cpp
 )
-
-if (NOT DEFINED ENV{GEODE_SDK})
-    message(FATAL_ERROR "Unable to find Geode SDK! Please define GEODE_SDK environment variable to point to Geode")
-else()
-    message(STATUS "Found Geode: $ENV{GEODE_SDK}")
-endif()
-
-add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/vendor
+)
 
 setup_geode_mod(${PROJECT_NAME})
 
-# ============================================================================
-# Spout2 — linked STATICALLY from vendored sources (no runtime DLL needed).
-# We bypass Spout2's own root CMake (which pulls project()/runtime options that
-# can collide with Geode's build) and compile the SpoutGL sources directly into
-# a small static lib, then link it into the mod.
-# ============================================================================
-if (WIN32)
-    set(SPOUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Spout2/SPOUTSDK/SpoutGL)
+# Plain-сигнатура (без PRIVATE) — setup_geode_mod уже использовал plain,
+# смешивание plain/keyword = ошибка CMake (критичный нюанс №3).
+target_link_libraries(${PROJECT_NAME} spout2_static)
 
-    add_library(Spout_static STATIC
-        ${SPOUT_DIR}/Spout.cpp
-        ${SPOUT_DIR}/SpoutCopy.cpp
-        ${SPOUT_DIR}/SpoutDirectX.cpp
-        ${SPOUT_DIR}/SpoutFrameCount.cpp
-        ${SPOUT_DIR}/SpoutGL.cpp
-        ${SPOUT_DIR}/SpoutGLextensions.cpp
-        ${SPOUT_DIR}/SpoutReceiver.cpp
-        ${SPOUT_DIR}/SpoutSender.cpp
-        ${SPOUT_DIR}/SpoutSenderNames.cpp
-        ${SPOUT_DIR}/SpoutSharedMemory.cpp
-        ${SPOUT_DIR}/SpoutUtils.cpp
-    )
-    # No SPOUT_BUILD_DLL define -> SPOUT_DLLEXP expands to nothing (static build).
-    target_include_directories(Spout_static PUBLIC ${SPOUT_DIR})
-    # GL_GLEXT_LEGACY stops <GL/gl.h> from declaring GL extension function
-    # pointer prototypes (PFNGLSHADERSOURCEPROC etc.). SpoutGLextensions.h
-    # redefines those same functions with its own typedefs (glShaderSourcePROC),
-    # which clashes with the system gl.h prototypes -> "redeclaration with a
-    # different type". Defining GL_GLEXT_LEGACY before gl.h suppresses the system
-    # prototypes so only Spout's remain. PUBLIC propagates to Spout.cpp too.
-    # NOTE: do NOT add NOGDI here — Spout needs wingdi.h types (PIXELFORMATDESCRIPTOR,
-    # wglGetCurrentDC, RGNDATA, BITMAPFILEHEADER, DISPLAY_DEVICE).
-    target_compile_definitions(Spout_static PUBLIC GL_GLEXT_LEGACY)
-    # Spout's SpoutCopy.cpp uses SSSE3/SSE4 intrinsics (_mm_shuffle_epi8 etc.).
-    target_compile_options(Spout_static PRIVATE -mssse3 -msse4.1)
-    # Spout needs the Windows system libs it lists in its own CMake.
-    target_link_libraries(Spout_static PUBLIC
-        opengl32 kernel32 user32 gdi32 winspool comdlg32 comctl32 advapi32
-        shell32 ole32 oleaut32 uuid odbc32 odbccp32 d3d9 d3d11 dxgi version winmm
-    )
-
-    target_link_libraries(${PROJECT_NAME} Spout_static)
-
-    # ============================================================================
-    # Spout_glue — our thin wrapper (Spout.cpp) compiled WITHOUT Geode's
-    # precompiled header. The layoutshadow target force-includes Geode's PCH
-    # (which pulls glew.h), and SpoutSender.h redeclares GL extension pointers
-    # with conflicting typedefs -> "__glewShaderSource redeclaration" error.
-    # Building Spout.cpp in its own static lib (no PCH, no Geode includes)
-    # isolates the clash to here.
-    # ============================================================================
-    add_library(Spout_glue STATIC src/Spout.cpp)
-    target_include_directories(Spout_glue PRIVATE ${SPOUT_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)
-    target_compile_definitions(Spout_glue PRIVATE LAYOUT_SHADOW_SPOUT=1 GL_GLEXT_LEGACY)
-    target_link_libraries(Spout_glue PRIVATE Spout_static)
-
-    target_link_libraries(${PROJECT_NAME} Spout_glue)
-endif()
-
-# layout_mode.cpp holds two giant ID tables; /bigobj keeps the TU compilable.
-# Only MSVC and clang-cl understand the /-flag form. Plain clang++ (GCC driver,
-# which some CI runners use to target Windows) would treat "/bigobj" as a file
-# path and fail with "no such file or directory". Gate accordingly: emit /bigobj
-# only for MSVC-compatible drivers. clang++ compiles these TUs fine at -O3
-# without it (sections get folded below the COFF 65k limit).
-if (MSVC)
+if(MSVC)
+    # /bigobj только под MSVC — clang++ (GCC driver) падает на /bigobj (нюанс №4)
     target_compile_options(${PROJECT_NAME} PRIVATE /bigobj)
 endif()

@@ -4,42 +4,35 @@
         "win": "2.2081"
     },
     "version": "v0.1.0",
-    "id": "laymod.shadow",
-    "name": "Layout Shadow",
-    "developer": "LayoutShadow",
-    "description": "Layout XDBot on screen (PRIMARY), full level to OBS via a shadow PlayLayer (SHADOW).",
+    "id": "you.spoutshadow",
+    "name": "Spout Shadow",
+    "developer": "you",
+    "description": "Layout для игрока, полный уровень + индикаторы в OBS через Spout2",
     "settings": {
-        "enabled": {
-            "name": "Enable Shadow PlayLayer",
-            "description": "Create a second offscreen PlayLayer (full level) when entering a level.",
+        "enable-layout": {
+            "name": "Layout mode (PRIMARY)",
             "type": "bool",
             "default": true
         },
-        "layout_on_primary": {
-            "name": "Apply Layout (XDBot) on PRIMARY",
-            "description": "When enabled, the visible player layer is rendered in XDBot layout mode (white silhouettes, blue bg, no decor). SHADOW stays full.",
-            "type": "bool",
-            "default": true
-        },
-        "shadow_width": {
-            "name": "Shadow Output Width",
-            "type": "int",
-            "default": 1920,
-            "min": 320,
-            "max": 3840
-        },
-        "shadow_height": {
-            "name": "Shadow Output Height",
-            "type": "int",
-            "default": 1080,
-            "min": 240,
-            "max": 2160
-        },
-        "spout_sender_name": {
-            "name": "Spout Sender Name",
-            "description": "Name exposed to OBS Spout2 Capture source. Empty disables Spout (texture preview shown instead).",
+        "spout-name": {
+            "name": "Spout sender name",
             "type": "string",
             "default": "GDShadow"
+        },
+        "render-width": {
+            "name": "Render width",
+            "type": "int",
+            "default": 1920
+        },
+        "render-height": {
+            "name": "Render height",
+            "type": "int",
+            "default": 1080
+        },
+        "log-drift": {
+            "name": "Log player position drift",
+            "type": "bool",
+            "default": true
         }
     }
 }
