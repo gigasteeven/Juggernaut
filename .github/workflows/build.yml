@@ -15,22 +15,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        submodules: recursive  # Скачивает Spout2, если он сабмодуль
+        submodules: recursive   # подтягивает lib/Spout2 как сабмодуль
 
-    - name: Setup Geode SDK
-      uses: geode-sdk/actions/setup-geode@v1
+    - name: Build the mod
+      uses: geode-sdk/build-geode-mod@main
+      id: build
       with:
-        version: v5.7.1  # Указываем нужную версию Geode
-
-    - name: Configure CMake
-      run: cmake -B build -S . -DCMAKE_BUILD_TYPE=RelWithDebInfo
-
-    - name: Build Mod
-      run: cmake --build build --config RelWithDebInfo --parallel 4
+        sdk: 'given'             # берёт 5.7.1 из mod.json → "geode" поле
+        build-config: RelWithDebInfo
+        export-pdb: true
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: SpoutShadow.geode
-        path: build/*.geode
+        path: ${{ steps.build.outputs.build-output }}
         if-no-files-found: error
