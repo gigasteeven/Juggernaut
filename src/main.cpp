@@ -1,6 +1,7 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/CCScheduler.hpp>
+#include <Geode/modify/CCDirector.hpp>
 #include <Geode/modify/FMODAudioEngine.hpp>
 #include "layout_mode.hpp"
 
@@ -24,6 +25,37 @@ struct DualLayerState {
     static DualLayerState& get() {
         static DualLayerState instance;
         return instance;
+    }
+};
+
+class $modify(MyCCDirector, CCDirector) {
+    void drawScene() {
+        auto& state = DualLayerState::get();
+        if (!state.primary && state.spoutSender) {
+            // If no PlayLayer is active, send the regular scene to Spout
+            auto winSize = CCDirector::get()->getWinSize();
+            if (!state.renderTexture) {
+                state.renderTexture = CCRenderTexture::create(winSize.width, winSize.height, cocos2d::kCCTexture2DPixelFormat_RGBA8888);
+                state.renderTexture->retain();
+            }
+            state.renderTexture->beginWithClear(0, 0, 0, 1);
+            CCDirector::drawScene(); // Draw the actual scene
+            state.renderTexture->end();
+
+            auto texture = state.renderTexture->getSprite()->getTexture();
+            if (texture) {
+                state.spoutSender->SendTexture(
+                    "GD_Shadow",
+                    GL_TEXTURE_2D,
+                    texture->getPixelsWide(),
+                    texture->getPixelsHigh(),
+                    false, // invert
+                    0      // hostFBO
+                );
+            }
+        } else {
+            CCDirector::drawScene();
+        }
     }
 };
 
