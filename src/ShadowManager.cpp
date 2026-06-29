@@ -3,7 +3,7 @@
 #include "ShadowState.hpp"
 #include "LayoutGate.hpp"
 #include <Geode/Bindings.hpp>
-#include <Geode/utils/cocos-stuff.hpp>
+
 
 ShadowManager& ShadowManager::get() { static ShadowManager m; return m; }
 
