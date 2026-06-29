@@ -1,78 +1,61 @@
 cmake_minimum_required(VERSION 3.21)
+
+project(gd_spout_mod VERSION 1.0.0)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-project(spoutshadow VERSION 0.1.0)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/mod.json" MOD_JSON)
 string(JSON MOD_ID GET "${MOD_JSON}" id)
 
-if(NOT DEFINED ENV{GEODE_SDK})
-    message(FATAL_ERROR "GEODE_SDK env var not set")
-endif()
-add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
-
-# === Spout2 — изолированная статическая библиотека ===
-set(SPOUT_GL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/Spout2/SPOUTSDK/SpoutGL")
-
-if(NOT EXISTS "${SPOUT_GL_DIR}/Spout.h")
-    message(FATAL_ERROR
-        "Spout2 sources not found at: ${SPOUT_GL_DIR}\n"
-        "Fix options:\n"
-        "  A) git submodule add https://github.com/leadedge/Spout2.git lib/Spout2\n"
-        "     git commit -am 'Add Spout2 submodule' && git push\n"
-        "  B) Скопировать SPOUTSDK/SpoutGL из leadedge/Spout2 в lib/Spout2/SPOUTSDK/SpoutGL\n"
-        "     и закоммитить файлы напрямую."
-    )
-endif()
-
-# Собираем все .cpp из SpoutGL — надёжнее хардкода, ловит SpoutSharedMemory/SpoutUtils тоже.
-file(GLOB SPOUT_SOURCES "${SPOUT_GL_DIR}/*.cpp")
-
-add_library(spout2_static STATIC ${SPOUT_SOURCES})
-target_include_directories(spout2_static PUBLIC ${SPOUT_GL_DIR})
-target_compile_definitions(spout2_static PRIVATE
-    GL_GLEXT_LEGACY        # ПЕРВЫМ — глушит redeclaration Glew vs Spout
-    SPOUT_STATIC_DEFINE    # статическая линковка, никакой runtime DLL
+# --- Spout2 Static Library ---
+# Compiled WITHOUT Geode PCH to avoid glew.h redeclaration conflicts.
+# GL_GLEXT_LEGACY must be the first define, before any GL headers.
+add_library(Spout2 STATIC
+    vendor/Spout2/SPOUTSDK/SpoutGL/SpoutSender.cpp
+    vendor/Spout2/SPOUTSDK/SpoutGL/SpoutSenderNames.cpp
+    vendor/Spout2/SPOUTSDK/SpoutGL/SpoutSharedMemory.cpp
+    vendor/Spout2/SPOUTSDK/SpoutGL/SpoutDirectX.cpp
+    vendor/Spout2/SPOUTSDK/SpoutGL/SpoutGL.cpp
+    vendor/Spout2/SPOUTSDK/SpoutGL/SpoutCopy.cpp
+    vendor/Spout2/SPOUTSDK/SpoutGL/SpoutUtils.cpp
+    vendor/Spout2/SPOUTSDK/SpoutGL/SpoutFrameCount.cpp
+    vendor/Spout2/SPOUTSDK/SpoutGL/SpoutGLextensions.cpp
+    vendor/Spout2/SPOUTSDK/SpoutGL/Spout.cpp
 )
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(spout2_static PRIVATE -mssse3)
+# GL_GLEXT_LEGACY suppresses glew extension redeclarations
+target_compile_definitions(Spout2 PRIVATE GL_GLEXT_LEGACY)
+target_include_directories(Spout2 PUBLIC vendor/Spout2/SPOUTSDK/SpoutGL)
+
+# DO NOT define NOGDI — Spout2 needs wingdi.h types
+# Link Spout2 with necessary Windows libraries
+if(WIN32)
+    target_link_libraries(Spout2 opengl32 d3d11 dxgi version)
 endif()
 
-if(MSVC)
-    target_compile_options(spout2_static PRIVATE /bigobj)
-endif()
-
-# === Главный таргет мода ===
-set(MOD_SOURCES
+# --- Main Mod Target ---
+add_library(${PROJECT_NAME} SHARED
     src/main.cpp
-    src/ShadowManager.cpp
-    src/SpoutManager.cpp
-    src/LayoutGate.cpp
-    src/hooks/PlayLayerHooks.cpp
-    src/hooks/FMODHooks.cpp
-    vendor/solid_ids.cpp
-    vendor/layout_mode.cpp
+    src/layout_mode.cpp
 )
 
-# Проверка существования всех исходников — даёт понятную ошибку, а не "No SOURCES"
-foreach(src ${MOD_SOURCES})
-    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${src}")
-        message(FATAL_ERROR "Missing source file: ${src}\nCreate it and commit.")
-    endif()
-endforeach()
+# Setup Geode
+if (NOT DEFINED ENV{GEODE_SDK})
+    message(FATAL_ERROR "Unable to find Geode SDK! Please define GEODE_SDK environment variable to point to Geode")
+else()
+    message(STATUS "Found Geode: $ENV{GEODE_SDK}")
+endif()
 
-add_library(${PROJECT_NAME} SHARED ${MOD_SOURCES})
-target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/vendor
-)
+add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
 setup_geode_mod(${PROJECT_NAME})
 
-# Plain-сигнатура (без PRIVATE) — setup_geode_mod уже использовал plain.
-target_link_libraries(${PROJECT_NAME} spout2_static)
+# Link Spout2 to main mod (plain signature — setup_geode_mod already used plain)
+target_link_libraries(${PROJECT_NAME} Spout2)
 
-if(MSVC)
+# /bigobj only under MSVC; clang++ (GCC driver) doesn't understand /bigobj
+if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /bigobj)
 endif()
