@@ -1,11 +1,10 @@
-// SpoutManager.cpp
+// src/SpoutManager.cpp
 #include "SpoutManager.hpp"
 #include "ShadowState.hpp"
 #include <Geode/Bindings.hpp>
 #include <Geode/utils/cocos-stuff.hpp>
-// Spout.h инклудится ТОЛЬКО здесь — этот TU НЕ должен тянуть Geode PCH с glew.h.
-// Если CMake всё же подключит PCH — вынести send-часть в отдельный TU внутри spout2_static.
 #include <Spout.h>
+#include <regex>
 
 SpoutManager& SpoutManager::get() { static SpoutManager m; return m; }
 
@@ -30,21 +29,37 @@ void SpoutManager::ensure(unsigned w, unsigned h) {
 void SpoutManager::renderShadow(PlayLayer* shadow) {
     if (!shadow || !m_rt || !m_ready) return;
 
-    // Рисуем shadow в offscreen render texture
+    // 1. Рисуем PlayLayer в offscreen текстуру
     m_rt->begin();
     shadow->visit();
-    // TODO: индикаторы (FPS/CPS/прогресс) — рисовать CCLabelBMFont поверх сюда.
+
+    // 2. Индикаторы поверх (FPS, CPS, Прогресс)
+    // Простая реализация: читаем CPS и FPS из глобальных полей GD
+    auto gm = GameManager::get();
+    float fps = gm->m_fps;
+    // TODO: добавить реальный CPS, если есть глобальный счетчик, пока заглушка 0
+    int cps = 0; 
+    float progress = 0.0f;
+    if (shadow->m_player1) {
+        // Примерный расчет прогресса (нужно подтвердить поле m_levelLength в 2.2081)
+        // progress = shadow->m_player1->getPositionX() / shadow->m_levelLength;
+    }
+
+    std::string text = fmt::format("FPS: {:.0f} | CPS: {} | {:.1f}%", fps, cps, progress * 100.f);
+    auto label = cocos2d::CCLabelBMFont::create(text.c_str(), "bigFont.fnt");
+    label->setAnchorPoint({0, 1});
+    label->setPosition({10, (float)m_h - 10});
+    label->setZOrder(9999);
+    label->visit();
+
     m_rt->end();
 
-    // Вычитаем пиксели из текстуры
-    // TODO(verify-cocos): способ вычитать пиксели из CCRenderTexture в cocos2d-x GD 2.2081.
-    //   Вариант A: glReadPixels после m_rt->end() с viewport = (0,0,w,h)
-    //   Вариант B: CCImage::initWithTexture(m_rt->getSprite()->getTexture())
-    // На скелете — заглушка, заполнить после зелёного билда.
-    std::fill(m_pixels.begin(), m_pixels.end(), 0);
+    // 3. Читаем пиксели из FBO
+    // glReadPixels медленный, но для старта сойдет. Позже заменим на PBO.
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, m_w, m_h, GL_RGBA, GL_UNSIGNED_BYTE, m_pixels.data());
 
-    // Отправляем в Spout2 → OBS (источник Spout2 Capture)
-    // bInvert=true т.к. FBO перевёрнут по Y
+    // 4. Отправляем в Spout2 (bInvert = true, т.к. FBO перевернут по Y)
     static_cast<Spout*>(m_spout)->SendImage(
         m_pixels.data(), m_w, m_h, GL_RGBA, true, 0
     );
