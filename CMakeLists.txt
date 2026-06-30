@@ -8,8 +8,10 @@ project(Juggernaut VERSION 1.0.0)
 # ─── Spout2 wrapper: separate static lib, NO Geode PCH ───
 # GL_GLEXT_LEGACY prevents Spout2 headers from redefining GL extension
 # typedefs that conflict with Geode's glew.h brought in via PCH.
+file(GLOB SPOUT_SOURCES "src/spout/SpoutGL/*.cpp")
 add_library(spout_wrapper STATIC
     src/spout/spout_wrapper.cpp
+    ${SPOUT_SOURCES}
 )
 target_include_directories(spout_wrapper PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/spout/SpoutGL
