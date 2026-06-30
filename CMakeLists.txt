@@ -22,7 +22,7 @@ target_compile_definitions(spout_wrapper PRIVATE
 )
 # Do NOT set precompiled header for spout_wrapper — it must NOT see Geode PCH
 if(MSVC)
-    target_compile_options(spout_wrapper PRIVATE /bigobj)
+    target_compile_options(spout_wrapper PRIVATE /bigobj /arch:AVX)
 endif()
 # Link OpenGL + d3d11 needed by Spout internals
 target_link_libraries(spout_wrapper PRIVATE opengl32 d3d11 dxgi shlwapi)
