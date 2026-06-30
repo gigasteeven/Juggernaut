@@ -21,7 +21,9 @@ target_compile_definitions(spout_wrapper PRIVATE
     SPOUT_BUILD_DLL=0
 )
 # Do NOT set precompiled header for spout_wrapper — it must NOT see Geode PCH
-if(MSVC)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    target_compile_options(spout_wrapper PRIVATE -mssse3)
+elseif(MSVC)
     target_compile_options(spout_wrapper PRIVATE /bigobj /arch:AVX)
 endif()
 # Link OpenGL + d3d11 needed by Spout internals
