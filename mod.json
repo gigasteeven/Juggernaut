@@ -1,0 +1,43 @@
+{
+    "geode": "5.7.1",
+    "gd": {
+        "win": "2.2081"
+    },
+    "version": "v1.0.0",
+    "id": "gigasteeven.juggernaut",
+    "name": "Juggernaut",
+    "developer": "gigasteeven",
+    "description": "Dual-view mod: layout mode on screen, full level + indicators via Spout2 for OBS.",
+    "settings": {
+        "enabled": {
+            "name": "Enable Juggernaut",
+            "description": "Master toggle for the dual-view system.",
+            "type": "bool",
+            "default": true
+        },
+        "spout-name": {
+            "name": "Spout Sender Name",
+            "description": "Name visible in OBS Spout2 Capture source.",
+            "type": "string",
+            "default": "GeometryDash"
+        },
+        "show-fps": {
+            "name": "Show FPS (OBS)",
+            "description": "Show FPS counter on the Spout output.",
+            "type": "bool",
+            "default": true
+        },
+        "show-cps": {
+            "name": "Show CPS (OBS)",
+            "description": "Show clicks-per-second on the Spout output.",
+            "type": "bool",
+            "default": true
+        },
+        "show-progress": {
+            "name": "Show Progress (OBS)",
+            "description": "Show level progress % on the Spout output.",
+            "type": "bool",
+            "default": true
+        }
+    }
+}
