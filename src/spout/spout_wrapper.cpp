@@ -34,8 +34,8 @@
 // These are expected at src/spout/SpoutGL/
 // If not present, provide stub implementation.
 
-#if __has_include("SpoutGL/SpoutSender.h")
-    #include "SpoutGL/SpoutSender.h"
+#if __has_include("SpoutSender.h")
+    #include "SpoutSender.h"
     #define HAS_SPOUT_SDK 1
 #else
     #define HAS_SPOUT_SDK 0
